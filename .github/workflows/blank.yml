@@ -19,7 +19,15 @@ class State:
     
 @route
 def index(state: State) -> Page:
-
+    '''
+    State page
+    
+    Parameters: 
+    State 
+    
+    Returns state page
+    
+    '''
      
     return Page(state,[
         "Welcome!",
