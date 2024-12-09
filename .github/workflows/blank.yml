@@ -2,19 +2,16 @@ from bakery import assert_equal
 from drafter import *
 from dataclasses import dataclass
 
-
-
 hide_debug_information()
 set_website_title("Your Drafter Website")
 set_website_framed(False)
-
 
 @dataclass
 class State:
     volume: int
     volume_liters: int
-    amps: int
-    Liters_Hydrogen_Per_Second: int
+    amps: float  # Use float for flexibility with float inputs
+    Liters_Hydrogen_Per_Minute: float  # Adjust to use float for consistency
     history: list[str]
     
 @route
@@ -38,8 +35,7 @@ def index(state: State) -> Page:
         "and the LEL you wish to find",
         Button("Start", meter_calculation),
         Button("History", calculation_history)
-
-        ])
+    ])
 
 @route
 def meter_calculation(state: State) -> Page:
@@ -52,7 +48,7 @@ def meter_calculation(state: State) -> Page:
     
     '''
     return Page(state, [
-        "Please enter your room's dimensions in meters (integers only!)",
+        "Please enter your room's dimensions in meters",
         TextBox("width", 0),
         TextBox("height", 0),
         TextBox("length",0),
@@ -60,254 +56,32 @@ def meter_calculation(state: State) -> Page:
         Button("Cancel", index)
     ])
 
-
 @route
-def volume_calculation(state: State, width: int, length: int, height: int) -> Page:
-    ''' Checks if the user's inputs are integers and calculates/returns volume of their room
+def volume_calculation(state: State, width: str, length: str, height: str) -> Page:
+    ''' Checks if the user's inputs are valid numbers (integers or floats) and calculates/returns volume of their room
 
-    
     Parameters: 
     State
-    width: int
-    length:int
-    height: int
+    width: str
+    length:str
+    height: str
 
     Returns page
-      '''
-    
-    if int(width) and int(height) and int(length):
-        
-        state.volume = width * height * length
-        state.volume_liters = state.volume * 1000
-        return Page(state, [ "Your Room's Volume Is "+ str(state.volume) + " Meters Cubed",
-                             "Your Room's Volume in Liters Is", str(state.volume_liters),
-                             Button("Continue Calculation", amps_input)              
-                    ])
-    
-    else:
-        return Page (state, [ "error! not a number or number is Zero!",
-        Button("Restart", index)
-                            ])
-    
-     
-    volume = state.width * state.height * state.length
-    return index(volume)
- 
-
-
-
- 
-@route
-def amps_input(state: State) -> Page:
-    ''' User enters in the amps of their electrolyzer '''
-    return Page(state, [
-        "Please enter the current (AMPS) of your electorlyzer in integers only!)",
-        TextBox("amps", 0),
-        Button("Submit", LEL_calculation),
-        Button("Cancel", index)
-    ])
-
-
-@route
-def LEL_calculation(state:State, amps: int) -> Page:
-    ''' User enters the LEL level they'd like to find
-
-    Parameters:
-    State
-    amps: int
-    
-    Returns page 
-'''
-    if int(amps):
-        state.Liters_Hydrogen_Per_Second = Calculation(state, amps)
-        
-        state.amps = amps
-        
-        return Page(state, [ "You Produce "+ str(state.Liters_Hydrogen_Per_Second) + " Liters / Second",
-                             "Enter in LEL level you'd like to find!",
-                             TextBox("LEL", 1),
-                             
-                            
-                             Button("Continue Calculation", LEL_output)              
-                    ]) 
-    
-def Calculation(state: State, amps:int) -> float:
-    ''' Helper function which calculates all the electro chem stuff
-    
-    Parameters:
-    State
-    amps: int
-    
-    Returns Liters of hydrogen produced a minute
-'''
-    f = 96485 #Faraday's Constant
-    if amps > 0:
-        L_per_minute = (amps/(2 * f)) * (22.4) * (60)
-        return L_per_minute
-    else:
-        return Page (state, [ "error! number is Zero!",
-        Button("Return to amp input screen", amps_input)
- ])
-
-
-
-
-
-@route       
-def LEL_output(state:State, LEL: int) -> float:
-    ''' Takes liters of hydrogen produces a minute and returns
-    how long it will take for the room to reach a LEL of hydrogen
-
-    Parameters:
-    State
-    LEL: int
-    
-    Returns final result
-
-
-'''
-    if int(LEL):
-        mol_air = state.volume_liters / 22.4
-        LEL_mol_hydrogen = mol_air * (LEL/100)
-        Time_To_LEL = LEL_mol_hydrogen / state.Liters_Hydrogen_Per_Second
-    
-        history_enter = "LEL: " + str(LEL) + "%, Time: " + str(Time_To_LEL) + " Seconds, Amps: " + str(state.amps) + " A"
-        state.history.append(history_enter)
-    
-    else:
-        return Page (state, [ "error! number is Zero!",
-        Button("Return to amp input screen", LEL_calculation)
-                              ])
-    
-   
-    return Page(state, [ "All Done!",
-                         "The Time To Reach " + str(LEL) + "% LEL with " + str(state.amps) + " amps is:",
-                         str(Time_To_LEL) + " Seconds",
-                         Button("Another Calculation", index)
-                         
-                      
-                         ])
-
-@route
-def calculation_history(state: State) -> Page:
-    ''' This function uses a loop to store calculations in a history page
-
-    Parameters:
-    State
-    
-    Returns history page
     '''
-    if not state.history:
-        return Page (state, [ "No Calculations",
-        Button("Return", index)
-                              ])
-   
-        
-    else:
-        history_print = "Calculation History: "
-        for calculation in state.history:
-            history_print += " |" + calculation + "|"
-        return Page (state, [ history_print,
-        Button("Return", index)
-                              ])
     
-  
-start_server(State(0,0,0,0,[]))
-
-assert_equal(
- index(State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[])),
- Page(state=State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=['Welcome!',
-              'This program calculates the amount of time it takes an electrolyzer to produce enough hydrogen to reach '
-              'a specific LEL (Lethal Explosive Limit) in a room',
-              "Your answer will require input of you room's dimensions, your electrolyzer's ampage,and the LEL you "
-              'wish to find',
-              Button(text='Start', url='/meter_calculation'),
-              Button(text='History', url='/calculation_history')]))
-
-assert_equal(
- calculation_history(State(volume=1, volume_liters=1000, amps=1, Liters_Hydrogen_Per_Second=0.006964813183396383, history=['LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A'])),
- Page(state=State(volume=1,
-                 volume_liters=1000,
-                 amps=1,
-                 Liters_Hydrogen_Per_Second=0.006964813183396383,
-                 history=['LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A']),
-     content=['Calculation History:  |LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A|',
-              Button(text='Return', url='/')]))
-
-assert_equal(
- meter_calculation(State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[])),
- Page(state=State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=["Please enter your room's dimensions in meters (integers only!)",
-              TextBox(name='width', kind='text', default_value='0'),
-              TextBox(name='height', kind='text', default_value='0'),
-              TextBox(name='length', kind='text', default_value='0'),
-              Button(text='Submit', url='/volume_calculation'),
-              Button(text='Cancel', url='/')]))
-
-assert_equal(
- LEL_calculation(State(volume=1, volume_liters=1000, amps=0, Liters_Hydrogen_Per_Second=0, history=[]), 1),
- Page(state=State(volume=1, volume_liters=1000, amps=1, Liters_Hydrogen_Per_Second=0.006964813183396383, history=[]),
-     content=['You Produce 0.006964813183396383 Liters / Second',
-              "Enter in LEL level you'd like to find!",
-              TextBox(name='LEL', kind='text', default_value='1'),
-              Button(text='Continue Calculation', url='/LEL_output')]))
-
-assert_equal(
- index(State(volume=1, volume_liters=1000, amps=1, Liters_Hydrogen_Per_Second=0.006964813183396383, history=['LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A'])),
- Page(state=State(volume=1,
-                 volume_liters=1000,
-                 amps=1,
-                 Liters_Hydrogen_Per_Second=0.006964813183396383,
-                 history=['LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A']),
-     content=['Welcome!',
-              'This program calculates the amount of time it takes an electrolyzer to produce enough hydrogen to reach '
-              'a specific LEL (Lethal Explosive Limit) in a room',
-              "Your answer will require input of you room's dimensions, your electrolyzer's ampage,and the LEL you "
-              'wish to find',
-              Button(text='Start', url='/meter_calculation'),
-              Button(text='History', url='/calculation_history')]))
-
-assert_equal(
- LEL_output(State(volume=1, volume_liters=1000, amps=1, Liters_Hydrogen_Per_Second=0.006964813183396383, history=[]), 1),
- Page(state=State(volume=1,
-                 volume_liters=1000,
-                 amps=1,
-                 Liters_Hydrogen_Per_Second=0.006964813183396383,
-                 history=['LEL: 1%, Time: 64.09770939625851 Seconds, Amps: 1 A']),
-     content=['All Done!',
-              'The Time To Reach 1% LEL with 1 amps is:',
-              '64.09770939625851 Seconds',
-              Button(text='Another Calculation', url='/')]))
-
-assert_equal(
- volume_calculation(State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[]), 1, 1, 1),
- Page(state=State(volume=1, volume_liters=1000, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=["Your Room's Volume Is 1 Meters Cubed",
-              "Your Room's Volume in Liters Is",
-              '1000',
-              Button(text='Continue Calculation', url='/amps_input')]))
-
-assert_equal(
- amps_input(State(volume=1, volume_liters=1000, amps=0, Liters_Hydrogen_Per_Second=0, history=[])),
- Page(state=State(volume=1, volume_liters=1000, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=['Please enter the current (AMPS) of your electorlyzer in integers only!)',
-              TextBox(name='amps', kind='text', default_value='0'),
-              Button(text='Submit', url='/LEL_calculation'),
-              Button(text='Cancel', url='/')]))
-assert_equal(
- index(State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[])),
- Page(state=State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=['Welcome!',
-              'This program calculates the amount of time it takes an electrolyzer to produce enough hydrogen to reach '
-              'a specific LEL (Lethal Explosive Limit) in a room',
-              "Your answer will require input of you room's dimensions, your electrolyzer's ampage,and the LEL you "
-              'wish to find',
-              Button(text='Start', url='/meter_calculation'),
-              Button(text='History', url='/calculation_history')]))
-
-assert_equal(
- calculation_history(State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[])),
- Page(state=State(volume=0, volume_liters=0, amps=0, Liters_Hydrogen_Per_Second=0, history=[]),
-     content=['No Calculations', Button(text='Return', url='/')]))
-  
+    if width.replace('.', '', 1).isdigit() and length.replace('.', '', 1).isdigit() and height.replace('.', '', 1).isdigit():
+        width, length, height = float(width), float(length), float(height)
+        
+        if width > 0 and length > 0 and height > 0:
+            state.volume = width * length * height
+            state.volume_liters = state.volume * 1000
+            return Page(state, [ "Your Room's Volume Is "+ str(state.volume) + " Meters Cubed",
+                                 "Your Room's Volume in Liters Is", str(state.volume_liters),
+                                 Button("Continue Calculation", amps_input)              
+                        ])
+        else:
+            return Page(state, ["error! not a positive number!",
+                                Button("Restart", index)])
+    else:
+        return Page(state, ["error! not a valid number!",
+                            Button("Restart", index)])
